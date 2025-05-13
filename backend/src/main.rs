@@ -1,34 +1,42 @@
 mod routes;
 
 use axum::{
-    routing::get,
+    routing::{get, get_service, post},
     Router,
 };
 use routes::{
-    homepage::homepage, 
-    workshop::book_workshop, 
-    community::{projects::community_projects, chapters::community_chapters, events::community_events},
-    learn_rust::learn_rust,
+    homepage::get_homepage_data,
+    workshops::book_workshop,
+    partnerships::{get_partnerships, submit_partnership},
     contact_us::contact_us
 };
 
+use tower_http::services::ServeDir;
+
 #[tokio::main]
-async fn main() {
-    let community_routes = Router::new()
-        .route("/projects", get(community_projects))
-        .route("/chapters", get(community_chapters))
-        .route("/events", get(community_events));
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let frontend_dir = get_service(ServeDir::new("frontend/dist")).handle_error(|err| async move {
+        (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Unhandled internal error: {}", err),
+        )
+    });
 
     let app = Router::new()
-        .route("/", get(homepage))
-        .route("/bookworkshop", get(book_workshop))
-        .nest("/community", community_routes)
-        .route("/learnrust", get(learn_rust))
-        .route("/contactus", get(contact_us));
+        .fallback_service(frontend_dir) // serve frontend build directory
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .expect("Failed to bind to port 3000");
+        .route("/home", get(get_homepage_data))
 
-    axum::serve(listener, app).await.unwrap();
+        .route("/workshop", post(book_workshop))
+
+        .route("/partnerships", get(get_partnerships).post(submit_partnership))
+
+        .route("/contactus", post(contact_us))
+        .nest_service("/contactus/assets", ServeDir::new("frontend/assets/contactus")); // TODO: set up spam checker
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
