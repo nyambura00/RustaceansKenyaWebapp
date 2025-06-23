@@ -1,8 +1,12 @@
 mod routes;
+mod models;
+mod db;
 
+use db::init::setup_db;
 use axum::{
     routing::{get, get_service, post},
     Router,
+    Extension,
 };
 use routes::{
     homepage::get_homepage_data,
@@ -10,7 +14,6 @@ use routes::{
     partnerships::{get_partnerships, submit_partnership},
     contact_us::contact_us
 };
-
 use tower_http::services::ServeDir;
 
 #[tokio::main]
@@ -22,8 +25,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     });
 
+    let db_state = setup_db().expect("Failed to set up Database");
+
     let app = Router::new()
         .fallback_service(frontend_dir) // serve frontend build directory
+
+        .layer(Extension(db_state))
 
         .route("/home", get(get_homepage_data))
 
