@@ -1,6 +1,7 @@
 use redb::{Database, DatabaseError};
 use thiserror::Error;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
+use tokio::fs;
 
 #[derive(Clone)]
 pub struct DbState {
@@ -22,11 +23,11 @@ pub enum DbSetupError {
     Redb(#[from] DatabaseError),
 }
 
-pub fn setup_db() -> Result<DbState, DbSetupError> {
+pub async fn setup_db() -> Result<DbState, DbSetupError> {
     let data_dir = PathBuf::from("data");
 
     if !data_dir.exists() {
-        fs::create_dir_all(&data_dir)?;
+        fs::create_dir_all(&data_dir).await?;
     }
 
     let db_path = data_dir.join("rk_site.redb");
