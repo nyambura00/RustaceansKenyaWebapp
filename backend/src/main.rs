@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     });
 
-    let db_state = setup_db().expect("Failed to set up Database");
+    let db_state = setup_db().await?;
 
     let app = Router::new()
         .fallback_service(frontend_dir) // serve frontend build directory
